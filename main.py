@@ -48,9 +48,7 @@ def cmd_bench(args: Namespace) -> None:
         }
     ]
 
-    measures = {}
-    measures["host"] = [args.name]
-
+    dfs = []
     for model in tqdm.tqdm(args.models, "Running models"):
         durations = []
         for _ in tqdm.tqdm(range(args.iters), model):
@@ -61,10 +59,14 @@ def cmd_bench(args: Namespace) -> None:
             durations.append(duration)
 
         min_duration = min(durations)
-        measures[model] = [min_duration]
 
-    measures_df = pl.DataFrame(measures)
-    measures_df.write_csv(f"results_{args.name}.csv")
+        df_model = pl.DataFrame(
+            {"host": [args.name], "model": [model], "duration": [min_duration]}
+        )
+        dfs.append(df_model)
+
+    df = pl.concat(dfs)
+    df.write_csv(f"results_{args.name}.csv")
 
 
 def cmd_aggregate_results(args: Namespace) -> None:
