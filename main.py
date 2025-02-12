@@ -51,16 +51,16 @@ def cmd_bench(args: Namespace) -> None:
     measures["host"] = [args.name]
 
     for model in tqdm.tqdm(args.models, "Running models"):
-        total_duration = 0
+        durations = []
         for _ in tqdm.tqdm(range(args.iters), model):
             clock_start = monotonic()
             ollama.chat(model=model, messages=messages)
             clock_end = monotonic()
             duration = clock_end - clock_start
-            total_duration += duration
+            durations.append(duration)
 
-        avg_duration = total_duration / args.iters
-        measures[model] = [avg_duration]
+        min_duration = min(durations)
+        measures[model] = [min_duration]
 
     measures_df = pl.DataFrame(measures)
     measures_df.write_csv(f"results_{args.name}.csv")
