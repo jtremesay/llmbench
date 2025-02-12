@@ -52,7 +52,7 @@ def cmd_bench(args: Namespace) -> None:
 
     for model in tqdm.tqdm(args.models, "Running models"):
         total_duration = 0
-        for _ in tqdm.tqdm(range(args.iters), model, leave=False):
+        for _ in tqdm.tqdm(range(args.iters), model):
             clock_start = monotonic()
             ollama.chat(model=model, messages=messages)
             clock_end = monotonic()
