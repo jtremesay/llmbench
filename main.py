@@ -22,6 +22,7 @@ from pathlib import Path
 from time import monotonic
 
 import ollama
+import plotly.express as px
 import polars as pl
 import tqdm
 
@@ -74,6 +75,12 @@ def cmd_aggregate_results(args: Namespace) -> None:
     df.write_csv("results.csv")
 
 
+def cmd_plot_results(args: Namespace) -> None:
+    df = pl.read_csv(args.results)
+    fig = px.line(df, x="model", y="duration", color="host")
+    fig.show()
+
+
 def main() -> None:
     arg_parser = ArgumentParser()
 
@@ -100,12 +107,17 @@ def main() -> None:
 
     # Aggregate subcommand
     cmd_agg_parser = sub_parsers.add_parser(
-        "aggregate", help="Aggregate results from runs"
+        "agg", help="Aggregate results from different runs"
     )
-    cmd_agg_parser.add_argument(
-        "runs", nargs="+", type=Path, help="Runs to aggregate (by name)"
-    )
+    cmd_agg_parser.add_argument("runs", nargs="+", type=Path, help="results files")
     cmd_agg_parser.set_defaults(cmd=cmd_aggregate_results)
+
+    # Plot subcommand
+    cmd_plot_parser = sub_parsers.add_parser("plot", help="Plot the results")
+    cmd_plot_parser.add_argument(
+        "results", nargs="?", type=Path, default="results.csv", help="results file"
+    )
+    cmd_plot_parser.set_defaults(cmd=cmd_plot_results)
 
     args = arg_parser.parse_args()
     try:
