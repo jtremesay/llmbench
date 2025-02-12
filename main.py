@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+# LLM Bench - a tool for benchmarking runtime of LLM
+# Copyright (C) 2025 Jonathan Trenesaygues <jonathan.tremesaygues@slaanesh.org>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+from argparse import ArgumentParser, Namespace
+from itertools import chain
+from os import uname
+from time import monotonic
+
+import ollama
+import polars as pl
+import tqdm
+
+MODELS = list(
+    chain.from_iterable(
+        [f"{model}:{tag}" for tag in tag]
+        for (model, tag) in {
+            "qwen2.5": ("0.5b", "1.5b", "3b", "7b", "14b", "32b"),
+        }.items()
+    )
+)
+ITERS_COUNT = 5
+
+
+def cmd_bench(args: Namespace) -> None:
+    if args.pull:
+        for model in tqdm.tqdm(args.models, "Pulling models"):
+            ollama.pull(model)
+
+    messages = [
+        {
+            "role": "user",
+            "content": "Hello, how are you?",
+        }
+    ]
+
+    measures = {}
+    measures["host"] = [args.name]
+
+    for model in tqdm.tqdm(args.models, "Running models"):
+        total_duration = 0
+        for _ in tqdm.tqdm(range(args.iters), model, leave=False):
+            clock_start = monotonic()
+            ollama.chat(model=model, messages=messages)
+            clock_end = monotonic()
+            duration = clock_end - clock_start
+            total_duration += duration
+
+        avg_duration = total_duration / args.iters
+        measures[model] = [avg_duration]
+
+    measures_df = pl.DataFrame(measures)
+    measures_df.write_csv(f"results_{args.name}.csv")
+
+
+def main() -> None:
+    arg_parser = ArgumentParser()
+
+    sub_parsers = arg_parser.add_subparsers()
+
+    # Benchmark subcommand
+    cmd_bench_parser = sub_parsers.add_parser("bench", help="Run the benchmark")
+    cmd_bench_parser.add_argument(
+        "--pull", "-p", action="store_true", help="Pull models from registry"
+    )
+    cmd_bench_parser.add_argument(
+        "--models", "-m", nargs="+", default=MODELS, help="Models to use"
+    )
+    cmd_bench_parser.add_argument(
+        "--iters", "-i", type=int, default=ITERS_COUNT, help="Iterations per model"
+    )
+    cmd_bench_parser.add_argument(
+        "--name",
+        "-n",
+        default=uname().nodename.split(".", 1)[0],
+        help="Name of the run",
+    )
+    cmd_bench_parser.set_defaults(cmd=cmd_bench)
+
+    args = arg_parser.parse_args()
+    try:
+        args.cmd(args)
+    except AttributeError:
+        arg_parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
