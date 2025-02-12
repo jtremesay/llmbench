@@ -109,9 +109,11 @@ def main() -> None:
 
     args = arg_parser.parse_args()
     try:
-        args.cmd(args)
+        cmd = args.cmd
     except AttributeError:
         arg_parser.print_help()
+        return
+    cmd(args)
 
 
 if __name__ == "__main__":
