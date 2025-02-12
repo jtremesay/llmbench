@@ -18,6 +18,7 @@
 from argparse import ArgumentParser, Namespace
 from itertools import chain
 from os import uname
+from pathlib import Path
 from time import monotonic
 
 import ollama
@@ -66,6 +67,11 @@ def cmd_bench(args: Namespace) -> None:
     measures_df.write_csv(f"results_{args.name}.csv")
 
 
+def cmd_aggregate_results(args: Namespace) -> None:
+    df = pl.concat([pl.read_csv(run) for run in args.runs])
+    df.write_csv("results.csv")
+
+
 def main() -> None:
     arg_parser = ArgumentParser()
 
@@ -89,6 +95,15 @@ def main() -> None:
         help="Name of the run",
     )
     cmd_bench_parser.set_defaults(cmd=cmd_bench)
+
+    # Aggregate subcommand
+    cmd_agg_parser = sub_parsers.add_parser(
+        "aggregate", help="Aggregate results from runs"
+    )
+    cmd_agg_parser.add_argument(
+        "runs", nargs="+", type=Path, help="Runs to aggregate (by name)"
+    )
+    cmd_agg_parser.set_defaults(cmd=cmd_aggregate_results)
 
     args = arg_parser.parse_args()
     try:
